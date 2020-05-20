@@ -1268,8 +1268,11 @@
     FT_Error   error = FT_Err_Ok;
     FT_ULong   offset_size;
 
+    /* At this point of time those tables might not have been read yet. */
     const WOFF2_Table  maxp_table = find_table( tables, num_tables,
                                                 TTAG_maxp );
+    const WOFF2_Table  head_table = find_table( tables, num_tables,
+                                                TTAG_head );
 
 
     if ( !maxp_table )
@@ -1278,8 +1281,14 @@
       return FT_THROW( Invalid_Table );
     }
 
+    if ( !head_table )
+    {
+      FT_ERROR(( "`head' table is missing.\n" ));
+      return FT_THROW( Invalid_Table );
+    }
+
     /* Read `numGlyphs' field from `maxp' table. */
-    if ( FT_STREAM_SEEK( maxp_table->src_offset ) && FT_STREAM_SKIP( 8 ) )
+    if ( FT_STREAM_SEEK( maxp_table->src_offset ) || FT_STREAM_SKIP( 8 ) )
       return error;
 
     if ( FT_READ_USHORT( num_glyphs ) )
@@ -1288,8 +1297,8 @@
     info->num_glyphs = num_glyphs;
 
     /* Read `indexToLocFormat' field from `head' table. */
-    if ( FT_STREAM_SEEK( info->head_table->src_offset ) &&
-         FT_STREAM_SKIP( 50 )                           )
+    if ( FT_STREAM_SEEK( head_table->src_offset ) ||
+         FT_STREAM_SKIP( 50 )                     )
       return error;
 
     if ( FT_READ_USHORT( index_format ) )
@@ -1326,7 +1335,7 @@
 
       glyf_offset += info->glyf_table->src_offset;
 
-      if ( FT_STREAM_SEEK( glyf_offset ) && FT_STREAM_SKIP( 2 ) )
+      if ( FT_STREAM_SEEK( glyf_offset ) || FT_STREAM_SKIP( 2 ) )
         return error;
 
       if ( FT_READ_USHORT( info->x_mins[i] ) )
@@ -2145,7 +2154,8 @@
 
 #ifdef FT_DEBUG_LEVEL_TRACE
       if ( sfnt_size != woff2.totalSfntSize )
-        FT_TRACE4(( "adjusting estimate of uncompressed font size to %lu\n",
+        FT_TRACE4(( "adjusting estimate of uncompressed font size"
+                    " to %lu bytes\n",
                     sfnt_size ));
 #endif
     }
